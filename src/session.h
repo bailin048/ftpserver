@@ -11,8 +11,13 @@ typedef struct session{
 	char arg[MAX_ARG_SIZE];
 	//数据连接
 	struct sockaddr_in* port_addr;
+	int data_fd;
+	int pasv_listen_fd;
 	//ftp协议状态
 	int is_ascii;
+	//父子进程同通道
+	int parent_fd;
+	int child_fd;
 }session_t;
 
 void begin_session(session_t* sess);

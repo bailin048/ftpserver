@@ -14,6 +14,11 @@
 #include <shadow.h>
 #include <crypt.h>
 
+#include <dirent.h>
+#include <sys/stat.h>
+
+#include <time.h>
+
 #define ERR_EXIT(msg)\
     do{\
         perror(msg);\

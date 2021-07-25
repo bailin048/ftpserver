@@ -1,12 +1,13 @@
-#include "sysutil.h"
-#include "session.h"
+#include"sysutil.h"
+#include"session.h"
 
-int main(int argc,char* argv[]){
-    //判断是否是root用户启动的ftp服务端
-    if(getuid() != 0){
-        printf("miniftp: must be start as root.\n");
-        exit(EXIT_FAILURE);
-    }
+int main(int argc, char *argv[]){
+	//判断是否为root用户启动
+	if(getuid() != 0){
+		printf("miniftp : must be started as root.\n");
+		exit(EXIT_FAILURE);
+	}
+
 	/*
 		typedef struct session
 		{
@@ -19,47 +20,62 @@ int main(int argc,char* argv[]){
 
 			//数据连接
 			struct sockaddr_in *port_addr;
+			int    data_fd;
+			int    pasv_listen_fd;
 
 			//ftp协议状态
 			int is_ascii;
+
+			//父子进程通道
+			int parent_fd;
+			int child_fd;
 		}session_t;
 	*/
-    //会话结构
-    session_t sess = {
-		//控制连接
-		-1,-1,"","","",
-		//数据连接
-		NULL,
-		//ftp协议状态
-		1
-	};
-    int listenfd = tcp_server("172.17.0.4", 9000);
 
-    int sockConn;
-    struct sockaddr_in addrCli;
-    socklen_t addrlen;
-    while(1){
-        sockConn = accept(listenfd, (struct sockaddr*)&addrCli, &addrlen);
-        if(sockConn < 0){
-            perror("accept failed!");
-            continue;
-        }
-        pid_t pid = fork();
-        if(-1 == pid)
-            ERR_EXIT("fork failed!");
-        if(pid == 0){
-            //子进程处理
-            close(listenfd);
-            sess.ctrl_fd = sockConn;
-            begin_session(&sess);
-            exit(EXIT_FAILURE);
-        }
-        else{
-            //父进程处理
-            close(sockConn);
-        }
-    }
-    close(listenfd);
-    return 0; 
+	//会话结构
+	session_t sess = {
+		//控制连接
+		-1, -1, "", "", "",
+		
+		//数据连接
+		NULL, -1, -1,
+
+		//ftp协议状态
+		1,
+		//父子进程通道
+		-1, -1
+	};
+
+	int listenfd = tcp_server("192.168.81.3",  9000);
+
+	int sockConn;
+	struct sockaddr_in addrCli;
+	socklen_t addrlen;
+	while(1){
+		sockConn = accept(listenfd, (struct sockaddr*)&addrCli, &addrlen);
+		if(sockConn < 0){
+			perror("accept");
+			continue;
+		}
+
+		pid_t pid = fork();
+		if(pid == -1)
+			ERR_EXIT("fork");
+
+		if(pid == 0){
+			//Child Process
+			close(listenfd);
+			sess.ctrl_fd = sockConn;
+			begin_session(&sess);
+			exit(EXIT_SUCCESS);
+		}
+		else{
+			//Parent Process
+			close(sockConn);
+		}
+	}
+	
+	close(listenfd);
+	return 0;
 }
 
