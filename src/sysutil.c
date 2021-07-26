@@ -22,7 +22,7 @@ int tcp_server(const char* host,unsigned short port){
         ERR_EXIT("listen failed!");
     return listenfd;
 }
-
+ 
 int tcp_client(){
     int sock;
     if((sock = (int)socket(AF_INET,SOCK_STREAM, 0)) < 0)

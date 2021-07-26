@@ -6,4 +6,4 @@
 void str_trim_crlf(char* str);
 void str_split(const char* str,char* left,char* right, char token);
 
-#endif /*__STR_H__*/
+#endif /*__STR_H__*/ 

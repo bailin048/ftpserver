@@ -19,4 +19,3 @@ void begin_session(session_t* sess){
         handle_parent(sess);
     }
 }
-
