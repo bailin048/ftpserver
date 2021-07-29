@@ -21,6 +21,7 @@ static void do_port(session_t* sess);
 static void do_pasv(session_t* sess);
 static void do_list(session_t* sess);
 static void do_cwd(session_t *sess);
+static void do_cdup(session_t* sess);
 static void do_mkd(session_t *sess);
 static void do_rmd(session_t *sess);
 static void do_dele(session_t *sess);
@@ -47,6 +48,7 @@ ftpcmd_t ctrl_cmds[]={
     {"PASV", do_pasv},
     {"LIST", do_list},
 	{"CWD" , do_cwd },
+	{"CDUP", do_cdup},
 	{"MKD" , do_mkd },
 	{"RMD" , do_rmd },
 	{"DELE", do_dele},
@@ -55,6 +57,7 @@ ftpcmd_t ctrl_cmds[]={
 	{"RNTO", do_rnto},
 	{"RETR", do_retr},
 	{"STOR", do_stor}
+
 };
 //ftp服务进程
 void handle_child(session_t* sess){
@@ -312,6 +315,14 @@ static void do_cwd(session_t* sess){
 		ftp_reply(sess,FTP_NOPERM, "Failed to change directory.");
 	else
 		ftp_reply(sess,FTP_CWDOK, "Directory successfully changed.");
+}
+//改变服务器上的父目录
+static void do_cdup(session_t* sess){
+	if(chdir("..") < 0){
+		ftp_reply(sess, FTP_NOPERM, "Failed to change directory.");
+		return;
+	} 
+	ftp_reply(sess, FTP_CWDOK, "Directory successfully changed.");
 }
 //创建文件夹
 static void do_mkd(session_t* sess){
