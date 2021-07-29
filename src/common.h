@@ -18,6 +18,8 @@
 #include <sys/stat.h>
 
 #include <time.h>
+#include <errno.h>
+#include <fcntl.h>
 
 #define ERR_EXIT(msg)\
     do{\

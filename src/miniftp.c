@@ -24,6 +24,7 @@ int main(int argc, char *argv[]){
 			int    pasv_listen_fd;
 
 			//ftp协议状态
+			char* rnfr_name;
 			int is_ascii;
 
 			//父子进程通道
@@ -41,7 +42,7 @@ int main(int argc, char *argv[]){
 		NULL, -1, -1,
 
 		//ftp协议状态
-		1,
+		NULL,1,
 		//父子进程通道
 		-1, -1
 	};
@@ -78,3 +79,4 @@ int main(int argc, char *argv[]){
 	close(listenfd);
 	return 0;
 }
+

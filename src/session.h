@@ -14,6 +14,7 @@ typedef struct session{
 	int data_fd;
 	int pasv_listen_fd;
 	//ftp协议状态
+	char* rnfr_name;
 	int is_ascii;
 	//父子进程同通道
 	int parent_fd;
