@@ -1,9 +1,12 @@
-
 #include "ftpproto.h"
 #include "session.h"
 #include "str.h"
 #include "ftpcodes.h"
 #include "sysutil.h"
+#include "privsock.h"
+#include "tunable.h"
+
+extern session_t* p_sess;
 
 static void ftp_reply(session_t* sess, unsigned int code,const char *text){
     char buffer[MAX_BUFFER_SIZE] = {0};
@@ -30,6 +33,8 @@ static void do_rnfr(session_t *sess);
 static void do_rnto(session_t *sess);
 static void do_retr(session_t *sess);
 static void do_stor(session_t *sess);
+static void do_rest(session_t *sess);
+static void do_quit(session_t *sess);
 
 //命令映射
 typedef struct ftpcmd{
@@ -56,9 +61,45 @@ ftpcmd_t ctrl_cmds[]={
 	{"RNFR", do_rnfr},
 	{"RNTO", do_rnto},
 	{"RETR", do_retr},
-	{"STOR", do_stor}
-
+	{"STOR", do_stor},
+	{"REST", do_rest},
+	{"QUIT", do_quit}
 };
+
+/////////////////////空闲断开////////////
+//1.控制连接空闲断开/////////////////////
+void handle_ctrl_timeout(int sig){
+	shutdown(p_sess->ctrl_fd, SHUT_RD);
+	ftp_reply(p_sess, FTP_IDLE_TIMEOUT, "Timeout");
+	shutdown(p_sess->ctrl_fd, SHUT_WR);
+	exit(EXIT_SUCCESS);
+}
+
+void start_cmdio_alarm(){
+	if(tunable_idle_session_timeout > 0){
+		signal(SIGALRM, handle_ctrl_timeout);//设置闹钟信号处理方式
+		alarm(tunable_idle_session_timeout);//定闹钟
+	}
+}
+//2.数据连接空闲断开/////////////////////
+void start_data_alarm();
+void handle_data_timeout(int sig){
+	if(!p_sess->data_process){//空闲断开
+		ftp_reply(p_sess, FTP_DATA_TIMEOUT, "Data timeout, Reconnect Sorry.");
+		exit(EXIT_FAILURE);
+	}
+	p_sess->data_process = 0;
+	start_data_alarm();
+}
+
+void start_data_alarm(){
+	if(tunable_data_connection_timeout > 0){
+		signal(SIGALRM, handle_data_timeout);
+		alarm(tunable_data_connection_timeout);
+	}
+}
+/////////////////////end/////////////////
+
 //ftp服务进程
 void handle_child(session_t* sess){
     ftp_reply(sess, FTP_GREET,"(miniftp 1.0.0)");
@@ -67,6 +108,8 @@ void handle_child(session_t* sess){
         memset(sess->cmdline, 0 , MAX_COMMAND_LINE_SIZE);
         memset(sess->cmd, 0, MAX_CMD_SIZE);
         memset(sess->arg, 0, MAX_ARG_SIZE);
+		//开启空闲断开
+		start_cmdio_alarm();
 
         int ret = recv(sess->ctrl_fd, sess->cmdline, MAX_COMMAND_LINE_SIZE, 0);
         if(ret < 0)
@@ -308,6 +351,8 @@ static void do_list(session_t* sess){
     //关闭数据连接
     close(sess->data_fd);
     sess->data_fd = -1;
+	//开启控制连接闹钟
+	start_cmdio_alarm();
 }
 //切换文件夹——工作路径
 static void do_cwd(session_t* sess){
@@ -381,6 +426,43 @@ static void do_rnto(session_t* sess){
 		ftp_reply(sess, FTP_RENAMEOK, "Rename successful.");
 	}
 }
+///////////////////////限速模块/////
+void limit_rate(session_t *sess, unsigned long bytes_transfer, int is_upload){
+	unsigned long long cur_sec = get_time_sec();
+	unsigned long long cur_usec = get_time_usec();
+
+	double pass_time = (double)(cur_sec - sess->transfer_start_sec);
+	pass_time += ((double)(cur_usec - sess->transfer_start_usec) / 1000000);
+	//当前传输速度
+	unsigned long cur_rate = (unsigned long)(bytes_transfer / pass_time);
+	double rate_ratio; //速率
+	if(is_upload){//上传限速
+		if(tunable_upload_max_rate==0 || cur_rate<=tunable_upload_max_rate){
+			//不限速
+			sess->transfer_start_sec = get_time_sec();
+			sess->transfer_start_usec = get_time_usec();
+			return;
+		}
+		rate_ratio = cur_rate / tunable_upload_max_rate;
+	}
+	else{//下载限速
+		//下载
+		if(tunable_download_max_rate==0 || cur_rate <= tunable_download_max_rate){
+			//不限速
+			sess->transfer_start_sec = get_time_sec();
+			sess->transfer_start_usec = get_time_usec();
+			return;
+		}
+		rate_ratio = cur_rate / tunable_download_max_rate;
+	}
+	double sleep_time = (rate_ratio - 1)*pass_time;
+	//休眠
+	nano_sleep(sleep_time);
+	//重新登记开始时间
+	sess->transfer_start_sec = get_time_sec();
+	sess->transfer_start_usec = get_time_usec();
+}
+////////////////////////////////////
 //下载文件
 static void do_retr(session_t* sess){
 	//建立数据传输链路
@@ -397,34 +479,60 @@ static void do_retr(session_t* sess){
 	fstat(fd, &sbuf);
 	char buf[MAX_BUFFER_SIZE] = {0};
 	if(sess->is_ascii)
-		sprintf(buf, "Opening ASCII mode data connection for %s (%u bytes).", sess->arg, (unsigned int)sbuf.st_size);
+		sprintf(buf, "Opening ASCII mode data connection for %s (%lld bytes).", sess->arg, (unsigned long long)sbuf.st_size);
 	else
-		sprintf(buf, "Opening BINARY mode data connection for %s (%u bytes).", sess->arg, (unsigned int)sbuf.st_size);
+		sprintf(buf, "Opening BINARY mode data connection for %s (%lld bytes).", sess->arg, (unsigned long long)sbuf.st_size);
 	ftp_reply(sess, FTP_DATACONN, buf);
 	//传输数据
-	unsigned int total_size = sbuf.st_size;
-	int read_count = 0;
-	while(1){
-		memset(buf, 0, MAX_BUFFER_SIZE);
-		read_count = total_size > MAX_BUFFER_SIZE ? MAX_BUFFER_SIZE:total_size;
-		int ret = read(fd, buf, read_count);
-		//读取出错
-		if(ret == -1 || ret != read_count){
-			ftp_reply(sess, FTP_BADSENDNET, "Failure writting to network stream.");
-			break;
+	unsigned long long total_size = sbuf.st_size;
+	//断点续载
+	unsigned long long offset = sess->restart_pos;
+	sess->restart_pos = 0;
+	if(offset >= total_size)
+		ftp_reply(sess, FTP_TRANSFEROK, "Transfer complete.");
+	else{
+		if(lseek(fd, offset, SEEK_SET) < 0)
+			ftp_reply(sess, FTP_UPLOADFAIL, "Could not create file.");
+		else{
+			int read_count = 0;
+			total_size -= offset;
+			//登记时间
+			sess->transfer_start_sec = get_time_sec();
+			sess->transfer_start_usec = get_time_usec();
+			while(1){
+				memset(buf, 0, MAX_BUFFER_SIZE);
+				read_count = total_size > MAX_BUFFER_SIZE ? MAX_BUFFER_SIZE:total_size;
+				int ret = read(fd, buf, read_count);
+				//读取出错
+				if(ret == -1 || ret != read_count){
+					ftp_reply(sess, FTP_BADSENDNET, "Failure writting to network stream.");
+					break;
+				}
+				//文件读取结束
+				if(ret == 0){
+					ftp_reply(sess, FTP_TRANSFEROK, "Transfer complete.");
+					break;
+				}
+				//处于数据连接状态
+				sess->data_process = 1;
+				//限速 —— 登记结束时间
+				limit_rate(sess, ret, 0);
+				//发送数据
+				send(sess->data_fd, buf, ret, 0);
+				total_size -= read_count;
+			}
 		}
-		//文件读取结束
-		if(ret == 0){
-			ftp_reply(sess, FTP_TRANSFEROK, "Transfer complete.");
-			break;
-		}
-		//发送数据
-		send(sess->data_fd, buf, ret, 0);
-		total_size -= read_count;
 	}
+	close(fd);
+	if(sess->data_fd != -1){
+		close(sess->data_fd);
+		sess->data_fd = -1;
+	}
+	//数据传完，控制连接闹钟启用
+	start_cmdio_alarm();
 }
 //上传文件
-static void do_stor(session_t* sess){
+static void do_stor(session_t *sess){
 	if(get_transfer_fd(sess) != 0)
 		return;
 
@@ -434,28 +542,59 @@ static void do_stor(session_t* sess){
 		return;
 	}
 
-	//回复
+	//回复150
 	ftp_reply(sess, FTP_DATACONN, "Ok to send data.");
+
+	//断点续传
+	unsigned long long offset = sess->restart_pos;
+	sess->restart_pos = 0;
+	if(lseek(fd, offset, SEEK_SET) < 0){
+		ftp_reply(sess, FTP_UPLOADFAIL, "Could not create file.");
+		return;
+	}
+	//登记时间
+	sess->transfer_start_sec = get_time_sec();
+	sess->transfer_start_usec = get_time_usec();
 	//传输数据
 	char buf[MAX_BUFFER_SIZE] = {0};
 	while(1){
 		memset(buf, 0, MAX_BUFFER_SIZE);
 		int ret = recv(sess->data_fd, buf, MAX_BUFFER_SIZE, 0);
-		if(-1 == ret){
+		if(ret == -1){
 			ftp_reply(sess, FTP_BADSENDNET, "Failure writting to network stream.");
 			break;
 		}
-		if(0 == ret){
+		if(ret == 0){
 			ftp_reply(sess, FTP_TRANSFEROK, "Transfer complete.");
 			break;
 		}
+		//处于数据连接状态
+		sess->data_process = 1;
+		//限速
+		limit_rate(sess, ret, 1);
 		write(fd, buf, ret);
 	}
-	//关闭文件
+
 	close(fd);
-	//关闭数据链路
 	if(sess->data_fd != -1){
 		close(sess->data_fd);
 		sess->data_fd = -1;
 	}
+	//开启控制连接闹钟
+	start_cmdio_alarm();
+}
+
+//断点续传或续载
+static void do_rest(session_t *sess){
+	sess->restart_pos = (unsigned long long)atoll(sess->arg);
+	char text[MAX_BUFFER_SIZE] = {0};
+	sprintf(text, "Restart position accepted (%lld).", sess->restart_pos);
+	ftp_reply(sess, FTP_RESTOK, text);
+}
+
+static void do_quit(session_t* sess){
+	ftp_reply(sess, FTP_GOODBYE, "Goodbye");
+	if(sess->data_fd != -1)//关闭数据连接	
+		close(sess->data_fd);
+	exit(EXIT_SUCCESS);
 }

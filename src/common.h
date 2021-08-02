@@ -18,8 +18,12 @@
 #include <sys/stat.h>
 
 #include <time.h>
+#include <sys/time.h>
+
 #include <errno.h>
 #include <fcntl.h>
+
+#include<signal.h>
 
 #define ERR_EXIT(msg)\
     do{\
@@ -33,5 +37,9 @@
 
 #define MAX_BUFFER_SIZE       1024
 #define MAX_CWD_SIZE          512
+
+#define MAX_SETTING_LINE_SIZE 1024
+#define MAX_KEY_SIZE          128
+#define MAX_VALUE_SIZE        512
 
 #endif/*__COMMON_H__*/

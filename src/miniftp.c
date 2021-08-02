@@ -1,7 +1,20 @@
-#include"sysutil.h"
-#include"session.h"
+#include "sysutil.h"
+#include "session.h"
+#include "tunable.h"
+#include "parseconf.h"
+
+//加载配置文件
+void Test_Parseconf(){
+	parseconf_load_file("miniftp.conf");
+}
+
+//全局会话结构指针
+session_t* p_sess;
 
 int main(int argc, char *argv[]){
+	//加载配置文件
+	parseconf_load_file("miniftp.conf");
+
 	//判断是否为root用户启动
 	if(getuid() != 0){
 		printf("miniftp : must be started as root.\n");
@@ -22,14 +35,18 @@ int main(int argc, char *argv[]){
 			struct sockaddr_in *port_addr;
 			int    data_fd;
 			int    pasv_listen_fd;
-
+			int    data_process;
 			//ftp协议状态
 			char* rnfr_name;
 			int is_ascii;
+			long long restart_pos;
 
 			//父子进程通道
 			int parent_fd;
 			int child_fd;
+			//限速
+			unsigned long long transfer_start_sec;
+			unsigned long long transfer_start_usec;
 		}session_t;
 	*/
 
@@ -39,13 +56,16 @@ int main(int argc, char *argv[]){
 		-1, -1, "", "", "",
 		
 		//数据连接
-		NULL, -1, -1,
+		NULL, -1, -1, 0,
 
 		//ftp协议状态
-		NULL,1,
+		NULL,1,0,
 		//父子进程通道
-		-1, -1
+		-1, -1,
+		//限速
+		0,0
 	};
+	p_sess = &sess;
 
 	int listenfd = tcp_server("192.168.81.3",  9000);
 

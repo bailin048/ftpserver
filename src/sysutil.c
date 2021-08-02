@@ -22,7 +22,7 @@ int tcp_server(const char* host,unsigned short port){
         ERR_EXIT("listen failed!");
     return listenfd;
 }
- 
+
 int tcp_client(){
     int sock;
     if((sock = (int)socket(AF_INET,SOCK_STREAM, 0)) < 0)
@@ -154,4 +154,30 @@ int recv_fd(const int sock_fd)
         ERR_EXIT("no passed fd");
 
     return recv_fd;
+}
+
+static struct timeval s_cur_time; 
+unsigned long long get_time_sec(){
+	if(gettimeofday(&s_cur_time, NULL) < 0)
+		ERR_EXIT("gettimeofday");
+	return s_cur_time.tv_sec;
+}
+
+unsigned long long get_time_usec(){
+	return s_cur_time.tv_usec;
+}
+
+void nano_sleep(double sleep_time){
+	unsigned long sec = (unsigned long)sleep_time;
+	double decimal = sleep_time - (double)sec;
+
+	struct timespec ts;
+	ts.tv_sec = (time_t)sec;
+	ts.tv_nsec = (long)(decimal*1000000000);
+
+	int ret;
+	do{
+		ret = nanosleep(&ts, &ts);
+	}
+	while (ret == -1 && errno == EINTR);//预防休眠被信号打断
 }

@@ -14,4 +14,12 @@ void str_split(const char* str,char* left,char* right,char token){
 		strncpy(left, str, pos-str);
 		strcpy(right, pos+1);
 	}
-} 
+}
+
+void str_upper(char *str){
+	while(*str != '\0'){
+		if(*str>='a' && *str<='z')
+			*str -= 32;
+		str++;
+	}
+}
