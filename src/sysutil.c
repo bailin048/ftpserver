@@ -147,7 +147,6 @@ int recv_fd(const int sock_fd)
     if (p_cmsg == NULL)
         ERR_EXIT("no passed fd");
 
-
     p_fd = (int*)CMSG_DATA(p_cmsg);
     recv_fd = *p_fd;
     if (recv_fd == -1)
@@ -170,7 +169,7 @@ unsigned long long get_time_usec(){
 void nano_sleep(double sleep_time){
 	unsigned long sec = (unsigned long)sleep_time;
 	double decimal = sleep_time - (double)sec;
-
+0
 	struct timespec ts;
 	ts.tv_sec = (time_t)sec;
 	ts.tv_nsec = (long)(decimal*1000000000);

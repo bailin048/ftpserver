@@ -591,7 +591,7 @@ static void do_rest(session_t *sess){
 	sprintf(text, "Restart position accepted (%lld).", sess->restart_pos);
 	ftp_reply(sess, FTP_RESTOK, text);
 }
-
+ 
 static void do_quit(session_t* sess){
 	ftp_reply(sess, FTP_GOODBYE, "Goodbye");
 	if(sess->data_fd != -1)//关闭数据连接	

@@ -29,5 +29,4 @@ void priv_sock_recv_buf(int fd, char *buf, unsigned int len);
 void priv_sock_send_fd(int sock_fd, int fd);
 int priv_sock_recv_fd(int sock_fd);
 
-
 #endif /* _PRIV_SOCK_H_ */

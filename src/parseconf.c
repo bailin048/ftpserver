@@ -2,7 +2,6 @@
 #include "tunable.h"
 #include "str.h"
 
-
 //bool型配置项
 static struct parseconf_bool_setting{
 	const char *p_setting_name; //配置项的名字

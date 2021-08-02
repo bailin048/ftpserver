@@ -1,7 +1,6 @@
 #ifndef _TUNABLE_H_
 #define _TUNABLE_H_
 
-
 extern int tunable_pasv_enable; //是否开启被动模式
 extern int tunable_port_enable;//是否开启主动模式
 extern unsigned int tunable_listen_port;//FTP服务器端口

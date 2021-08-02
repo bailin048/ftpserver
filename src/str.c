@@ -5,7 +5,7 @@ void str_trim_crlf(char* str){
 	while(*p == '\r' || *p == '\n')
 		*p-- = '\0';
 }
-
+ 
 void str_split(const char* str,char* left,char* right,char token){
 	char* pos = strchr(str,token);
 	if(pos == NULL)

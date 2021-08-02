@@ -1,6 +1,5 @@
 #ifndef __STR_H__
 #define __STR_H__
-
 #include "common.h"
 
 void str_trim_crlf(char* str);

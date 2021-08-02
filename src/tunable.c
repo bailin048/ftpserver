@@ -12,4 +12,4 @@ unsigned int tunable_data_connection_timeout=300; //数据连接超时时间
 unsigned int tunable_local_umask = 077; //掩码
 unsigned int tunable_upload_max_rate = 0; //最大上传速度
 unsigned int tunable_download_max_rate=0; // 最大下载速度
-const char *tunable_listen_address;
+const char *tunable_listen_address; 
