@@ -169,7 +169,7 @@ unsigned long long get_time_usec(){
 void nano_sleep(double sleep_time){
 	unsigned long sec = (unsigned long)sleep_time;
 	double decimal = sleep_time - (double)sec;
-0
+
 	struct timespec ts;
 	ts.tv_sec = (time_t)sec;
 	ts.tv_nsec = (long)(decimal*1000000000);

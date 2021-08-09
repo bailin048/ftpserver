@@ -1,37 +1,41 @@
 #ifndef __COMMON_H__
 #define __COMMON_H__
 
-#include <string.h>
-#include <unistd.h>
-#include <stdio.h>
-#include <stdlib.h>
+#include<stdio.h>
+#include<unistd.h>
+#include<stdlib.h>
+#include<string.h>
+#include<assert.h>
 
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
 
-#include <pwd.h>
-#include <shadow.h>
-#include <crypt.h>
+#include<sys/socket.h>
+#include<netinet/in.h>
+#include<arpa/inet.h>
 
-#include <dirent.h>
-#include <sys/stat.h>
+#include<pwd.h>
+#include<shadow.h>
+#include<crypt.h>
 
-#include <time.h>
-#include <sys/time.h>
+#include<dirent.h>
+#include<sys/stat.h>
 
-#include <errno.h>
-#include <fcntl.h>
+#include<time.h>
+#include<sys/time.h>
+
+#include<errno.h>
+#include<fcntl.h>
 
 #include<signal.h>
 
-#define ERR_EXIT(msg)\
-    do{\
-        perror(msg);\
-        exit(EXIT_FAILURE);\
-    }while(0)
+#include<sys/wait.h>
 
-#define MAX_COMMAND_LINE_SIZE 1024
+#define ERR_EXIT(msg)\
+		do{\
+			perror(msg);\
+			exit(EXIT_FAILURE);\
+		}while(0)
+
+#define MAX_COMMOND_LINE_SIZE 1024
 #define MAX_CMD_SIZE          128
 #define MAX_ARG_SIZE          1024
 
@@ -42,4 +46,6 @@
 #define MAX_KEY_SIZE          128
 #define MAX_VALUE_SIZE        512
 
-#endif/*__COMMON_H__*/
+#define MAX_BUCKET_SIZE       191
+
+#endif /* __COMMON_H__ */

@@ -13,9 +13,9 @@ static void privop_pasv_listen(session_t *sess);
 static void privop_pasv_accept(session_t *sess);
 
 //nobody服务进程
-void handle_parent(session_t* sess){
+void handle_parent(session_t *sess){
 	//更改nobody进程
-	struct passwd* pwd = getpwnam("nobody");
+	struct passwd *pwd = getpwnam("nobody"); //lyx
 	if(pwd == NULL)
 		ERR_EXIT("getpwnam");
 	if(setegid(pwd->pw_gid) < 0)
@@ -25,7 +25,7 @@ void handle_parent(session_t* sess){
 
 	char cmd;
 	while(1){
-		//循环等待命令
+		//不停的等待ftp服务进程的消息
 		cmd = priv_sock_get_cmd(sess->parent_fd);
 		switch(cmd){
 		case PRIV_SOCK_GET_DATA_SOCK:
@@ -52,17 +52,19 @@ static void privop_pasv_get_data_sock(session_t* sess){
 
 	//port
 	unsigned short port = (unsigned short)priv_sock_get_int(sess->parent_fd);
+
 	struct sockaddr_in addr;
 	addr.sin_family = AF_INET;
 	addr.sin_port = htons(port);
 	addr.sin_addr.s_addr = inet_addr(ip);
 
-	int sock = tcp_client();
+	int sock = tcp_client();  //绑定20端口
 	socklen_t addrlen = sizeof(struct sockaddr);
 	if(connect(sock, (struct sockaddr*)&addr, addrlen) < 0){
 		priv_sock_send_result(sess->parent_fd, PRIV_SOCK_RESULT_BAD);
 		return;
 	}
+
 	priv_sock_send_result(sess->parent_fd, PRIV_SOCK_RESULT_OK);
 	priv_sock_send_fd(sess->parent_fd, sock);
 
@@ -81,13 +83,14 @@ static void privop_pasv_listen(session_t *sess){
 	unsigned int v[4] = {0};
 	sscanf(ip,"%u.%u.%u.%u",&v[0],&v[1],&v[2],&v[3]);
 
-	//0表示生成默认端口
+	//0代表生成默认端口号
 	int sockfd = tcp_server(ip, 0);
 
 	struct sockaddr_in addr;
 	socklen_t addrlen = sizeof(struct sockaddr);
-	if(getsockname(sockfd, (struct sockaddr*)&addr, &addrlen) < 0)
+	if(getsockname(sockfd,	(struct sockaddr*)&addr, &addrlen) < 0)
 		ERR_EXIT("getsockname");
+
 	unsigned short port = ntohs(addr.sin_port);
 
 	sess->pasv_listen_fd = sockfd;

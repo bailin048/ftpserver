@@ -8,7 +8,7 @@
 
 extern session_t* p_sess;
 
-static void ftp_reply(session_t* sess, unsigned int code,const char *text){
+void ftp_reply(session_t* sess, unsigned int code,const char *text){
     char buffer[MAX_BUFFER_SIZE] = {0};
     sprintf(buffer,"%d %s\r\n", code, text);
     send(sess->ctrl_fd, buffer,strlen(buffer), 0);
@@ -105,13 +105,13 @@ void handle_child(session_t* sess){
     ftp_reply(sess, FTP_GREET,"(miniftp 1.0.0)");
     while(1){
         //循环等待客户端的命令并处理
-        memset(sess->cmdline, 0 , MAX_COMMAND_LINE_SIZE);
+        memset(sess->cmdline, 0 , MAX_COMMOND_LINE_SIZE);
         memset(sess->cmd, 0, MAX_CMD_SIZE);
         memset(sess->arg, 0, MAX_ARG_SIZE);
 		//开启空闲断开
 		start_cmdio_alarm();
 
-        int ret = recv(sess->ctrl_fd, sess->cmdline, MAX_COMMAND_LINE_SIZE, 0);
+        int ret = recv(sess->ctrl_fd, sess->cmdline, MAX_COMMOND_LINE_SIZE, 0);
         if(ret < 0)
             ERR_EXIT("recv");
         str_trim_crlf(sess->cmdline);

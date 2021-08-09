@@ -1,5 +1,5 @@
-#ifndef _TUNABLE_H_
-#define _TUNABLE_H_
+#ifndef __TUNABLE_H__
+#define __TUNABLE_H__
 
 extern int tunable_pasv_enable; //是否开启被动模式
 extern int tunable_port_enable;//是否开启主动模式
@@ -15,4 +15,4 @@ extern unsigned int tunable_upload_max_rate; //最大上传速度
 extern unsigned int tunable_download_max_rate; // 最大下载速度
 extern const char *tunable_listen_address;
 
-#endif /* _TUNABLE_H_ */
+#endif /* __TUNABLE_H__ */
