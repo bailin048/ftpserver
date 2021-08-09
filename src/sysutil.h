@@ -2,8 +2,9 @@
 #define __SYSUTIL_H__
 #include "common.h"
 
+void getlocalip(char *ip);
 int tcp_server(const char *host, unsigned short port);
-int tcp_client();
+int tcp_client(int port);
 
 char* statbuf_get_perms(struct stat *sbuf);
 char* statbuf_get_date(struct stat *sbuf);

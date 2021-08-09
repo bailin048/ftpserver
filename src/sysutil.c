@@ -1,5 +1,17 @@
 #include "sysutil.h"
 
+void getlocalip(char *ip){
+	char host[MAX_HOST_NAME_SIZE] = {0};
+	if(gethostname(host, MAX_HOST_NAME_SIZE) < 0)
+		ERR_EXIT("getlocalip");
+
+	struct hostent *pht;
+	if((pht = gethostbyname(host)) == NULL)
+		ERR_EXIT("gethostbyname");
+
+	strcpy(ip, inet_ntoa(*(struct in_addr*)pht->h_addr));
+}
+
 int tcp_server(const char* host,unsigned short port){
     int listenfd;
     //创建套接字
@@ -23,10 +35,22 @@ int tcp_server(const char* host,unsigned short port){
     return listenfd;
 }
 
-int tcp_client(){
+int tcp_client(int port){
     int sock;
     if((sock = (int)socket(AF_INET,SOCK_STREAM, 0)) < 0)
         ERR_EXIT("socket");
+	struct sockaddr_in address;
+	address.sin_family = AF_INET;
+	address.sin_port = htons(port);
+	address.sin_addr.s_addr = INADDR_ANY;
+	//地址及端口重用
+	int on = 1;
+	if(setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on)) < 0)
+		ERR_EXIT("setsockopt");
+
+	if(bind(sock, (struct sockaddr*)&address, sizeof(address)) < 0)
+		ERR_EXIT("bind 20");
+
     return sock;
 }
 

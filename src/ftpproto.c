@@ -159,7 +159,6 @@ static void do_pass(session_t* sess){
         //密码错误
         ftp_reply(sess, FTP_LOGINERR, "Login incorrect.");
         return;
-
     }
 
     //更改ftp服务进程
@@ -256,6 +255,7 @@ static void do_pasv(session_t* sess){
 }
 /////////////////////////////////////////////////////
 //数据连接
+int pasv_active(session_t* sess);
 int port_active(session_t* sess){
     if(sess->port_addr != NULL){
 		if(pasv_active(sess))

@@ -11,6 +11,7 @@
 #include<sys/socket.h>
 #include<netinet/in.h>
 #include<arpa/inet.h>
+#include <netdb.h>
 
 #include<pwd.h>
 #include<shadow.h>
@@ -28,6 +29,9 @@
 #include<signal.h>
 
 #include<sys/wait.h>
+
+#include<linux/capability.h>
+#include<sys/syscall.h>
 
 #define ERR_EXIT(msg)\
 		do{\
@@ -47,5 +51,6 @@
 #define MAX_VALUE_SIZE        512
 
 #define MAX_BUCKET_SIZE       191
+#define MAX_HOST_NAME_SIZE    256
 
 #endif /* __COMMON_H__ */

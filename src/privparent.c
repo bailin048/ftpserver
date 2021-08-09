@@ -12,8 +12,10 @@ static void privop_pasv_listen(session_t *sess);
 //被动模式下接收连接
 static void privop_pasv_accept(session_t *sess);
 
-//nobody服务进程
-void handle_parent(session_t *sess){
+int capset(cap_user_header_t hdrp, const cap_user_data_t datap){
+	return syscall(__NR_capset, hdrp, datap);
+}
+static void minimize_privilege(){
 	//更改nobody进程
 	struct passwd *pwd = getpwnam("nobody"); //lyx
 	if(pwd == NULL)
@@ -22,6 +24,31 @@ void handle_parent(session_t *sess){
 		ERR_EXIT("setegid");
 	if(seteuid(pwd->pw_uid) < 0)
 		ERR_EXIT("seteuid");
+
+	struct __user_cap_header_struct cap_header;
+	struct __user_cap_data_struct   cap_data;
+	memset(&cap_header, 0, sizeof(cap_header));
+	memset(&cap_data,   0, sizeof(cap_data));
+
+	//设置头结构
+	cap_header.version = _LINUX_CAPABILITY_VERSION_2;
+	cap_header.pid = 0; //提升为root用户
+	//设置数据结构
+	unsigned int cap_mask = 0;
+	printf("pid = %d\n",cap_header.pid);
+	printf("cap_mask_fore = %d\n", cap_mask);
+	cap_mask |= (1<<CAP_NET_BIND_SERVICE); 
+	printf("cap_mask_rear = %d\n", cap_mask);
+	cap_data.effective = cap_data.permitted = cap_mask;
+	cap_data.inheritable = 0;
+	//设置特殊能力
+	capset(&cap_header, &cap_data);
+}
+
+//nobody服务进程
+void handle_parent(session_t *sess){
+	//提升权限
+	minimize_privilege();
 
 	char cmd;
 	while(1){
@@ -58,7 +85,7 @@ static void privop_pasv_get_data_sock(session_t* sess){
 	addr.sin_port = htons(port);
 	addr.sin_addr.s_addr = inet_addr(ip);
 
-	int sock = tcp_client();  //绑定20端口
+	int sock = tcp_client(20);  //绑定20端口
 	socklen_t addrlen = sizeof(struct sockaddr);
 	if(connect(sock, (struct sockaddr*)&addr, addrlen) < 0){
 		priv_sock_send_result(sess->parent_fd, PRIV_SOCK_RESULT_BAD);
@@ -79,7 +106,10 @@ static void privop_pasv_active(session_t *sess){
 }
 
 static void privop_pasv_listen(session_t *sess){
-	char ip[16] = "192.168.81.3";
+	//获取本地ip
+	char ip[16] = {0};
+	getlocalip(ip);
+
 	unsigned int v[4] = {0};
 	sscanf(ip,"%u.%u.%u.%u",&v[0],&v[1],&v[2],&v[3]);
 

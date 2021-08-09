@@ -24,7 +24,8 @@ void drop_ip_count(unsigned int *ip);
 int main(int argc, char *argv[]){
 	//加载配置文件
 	parseconf_load_file("miniftp.conf");
-
+	//程序后台化
+	//daemon(0, 0);
 	//判断是否为root用户启动
 	if(getuid() != 0){
 		printf("miniftp : must be started as root.\n");
