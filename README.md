@@ -11,3 +11,4 @@ editplus是为了在服务器上编写代码方便使用的工具
 
 【注】：
 1.若运行时主被动都连接不到本服务器，则应检查 /etc/hosts 文件中localhost对应的ip是否为127.0.0.1,该IP需手动改为其他IP，方可正常通信
+2.miniftp服务启动后，若是报parseconf_load_file: No such file or directory,则需要将配置文件【miniftp.conf】与miniftp放在同一路径下
