@@ -234,71 +234,103 @@ static void do_port(session_t* sess){
 }
 
 static void do_pasv(session_t* sess){
-    char ip[16] = "192.168.81.3";
-    unsigned int v[4] = {0};
-    sscanf(ip, "%u.%u.%u.%u", &v[0], &v[1],&v[2],&v[3]);
-    //0代表生成默认端口号
-    int sockfd = tcp_server(ip,0);
+	priv_sock_send_cmd(sess->child_fd, PRIV_SOCK_PASV_LISTEN);
+	char ip[16] = {0};
 
-    struct sockaddr_in addr;
-    socklen_t addrlen = sizeof(struct sockaddr);
-    if(getsockname(sockfd, (struct sockaddr*)&addr, &addrlen) < 0)
-        ERR_EXIT("getsocknam");
+	//接收ip
+	int len = priv_sock_get_int(sess->child_fd);
+	priv_sock_recv_buf(sess->child_fd, ip, len);
+	//接收port
+	unsigned short port = (unsigned short)priv_sock_get_int(sess->child_fd);
 
-    sess->pasv_listen_fd = sockfd;
+	//////////////////////////////////////////////////////////
 
-    unsigned short port = ntohs(addr.sin_port);
+	unsigned v[4] = {0};
+	sscanf(ip, "%u.%u.%u.%u", &v[0], &v[1], &v[2], &v[3]);
+	char text[MAX_BUFFER_SIZE] = {0};
+	sprintf(text, "Entering Passive Mode (%u,%u,%u,%u,%u,%u).",
+		v[0],v[1],v[2],v[3], port>>8, port&0x00ff);
 
-    char text[MAX_BUFFER_SIZE] = {0};
-    sprintf(text, "Entering Passive Mode (%u,%u,%u,%u,%u,%u).",
-            v[0],v[1],v[2],v[3], port>>8, port&0x00ff);
-
-    //227 Entering Passive Mode (192,168,81,3,xxx,xxx).
-    ftp_reply(sess, FTP_PASVOK, text);
+	//227 Entering Passive Mode (192,168,232,10,248,159).
+	ftp_reply(sess, FTP_PASVOK, text);
 }
 /////////////////////////////////////////////////////
 //数据连接
 int port_active(session_t* sess){
-    if(sess->port_addr != NULL)
-        return 1;
-    return 0;
+    if(sess->port_addr != NULL){
+		if(pasv_active(sess))
+			ERR_EXIT("both port an pasv are active");
+		return 1;
+	}
+	return 0;
 }
 
 int pasv_active(session_t* sess){
-    if(sess->pasv_listen_fd != -1)
-        return 1;
-    return 0;
+    priv_sock_send_cmd(sess->child_fd, PRIV_SOCK_PASV_ACTIVE);
+	int active = priv_sock_get_int(sess->child_fd);
+	if(active != -1){
+		if(port_active(sess))
+			ERR_EXIT("both port an pasv are active");
+		return 1;
+	}
+	return 0;
+}
+
+int get_port_fd(session_t *sess){
+	priv_sock_send_cmd(sess->child_fd, PRIV_SOCK_GET_DATA_SOCK);
+	
+	//发送ip
+	char *ip = inet_ntoa(sess->port_addr->sin_addr);
+	priv_sock_send_int(sess->child_fd, strlen(ip));
+	priv_sock_send_buf(sess->child_fd, ip, strlen(ip));
+
+	//发送port
+	unsigned short port = ntohs(sess->port_addr->sin_port);
+	priv_sock_send_int(sess->child_fd, (int)port);
+
+	char res = priv_sock_get_result(sess->child_fd);
+	if(res == PRIV_SOCK_RESULT_BAD)
+		return -1;
+
+	sess->data_fd = priv_sock_recv_fd(sess->child_fd);
+	return 0;
+}
+
+int get_pasv_fd(session_t *sess){
+	priv_sock_send_cmd(sess->child_fd, PRIV_SOCK_PASV_ACCEPT);
+	char res = priv_sock_get_result(sess->child_fd);
+	if(res == PRIV_SOCK_RESULT_BAD)
+		return -1;
+
+	sess->data_fd = priv_sock_recv_fd(sess->child_fd);
+	return 0;
 }
 //确定传输模式及相应数据链路
 static int get_transfer_fd(session_t* sess){
     if(!port_active(sess) && !pasv_active(sess)){
-        //425 Use PORT or PASV first. 
-        ftp_reply(sess, FTP_BADSENDCONN, "Use PORT or PASV first.");
-        return -1;
-    }
+		//425 Use PORT or PASV first.
+		ftp_reply(sess, FTP_BADSENDCONN, "Use PORT or PASV first.");
+		return -1;
+	}
 
-    if(port_active(sess)){
-        int sock = tcp_client();
-        socklen_t addrlen = sizeof(struct sockaddr);
-        if(connect(sock, (struct sockaddr*)sess->port_addr, addrlen) < 0)
-            return -1;
-        //保存数据连接套接字
-        sess->data_fd = sock;
-    }
-    if(pasv_active(sess)){
-        int sockConn;
-        struct sockaddr_in addr;
-        socklen_t addrlen;
-        if((sockConn = accept(sess->pasv_listen_fd, (struct sockaddr*)&addr, &addrlen)) < 0)
-            return -1;
-        sess->data_fd = sockConn;
-    }
+	if(port_active(sess)){
+		if(get_port_fd(sess) != 0)
+			return -1;
+	}
+	if(pasv_active(sess)){
+		if(get_pasv_fd(sess) != 0)
+			return -1;
+	}
 
-    if(sess->port_addr){
-        free(sess->port_addr);
-        sess->port_addr = NULL;
-    }
-    return 0;
+	if(sess->port_addr){
+		free(sess->port_addr);
+		sess->port_addr = NULL;
+	}
+
+	//开启数据连接空闲断开
+	start_data_alarm();
+
+	return 0;
 }
 //整理传输列表数据格式
 void list_common(session_t* sess)
