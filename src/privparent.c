@@ -35,10 +35,7 @@ static void minimize_privilege(){
 	cap_header.pid = 0; //提升为root用户
 	//设置数据结构
 	unsigned int cap_mask = 0;
-	printf("pid = %d\n",cap_header.pid);
-	printf("cap_mask_fore = %d\n", cap_mask);
 	cap_mask |= (1<<CAP_NET_BIND_SERVICE); 
-	printf("cap_mask_rear = %d\n", cap_mask);
 	cap_data.effective = cap_data.permitted = cap_mask;
 	cap_data.inheritable = 0;
 	//设置特殊能力
@@ -85,7 +82,7 @@ static void privop_pasv_get_data_sock(session_t* sess){
 	addr.sin_port = htons(port);
 	addr.sin_addr.s_addr = inet_addr(ip);
 
-	int sock = tcp_client(20);  //绑定20端口
+	int sock = tcp_client(10000);  //绑定20端口
 	socklen_t addrlen = sizeof(struct sockaddr);
 	if(connect(sock, (struct sockaddr*)&addr, addrlen) < 0){
 		priv_sock_send_result(sess->parent_fd, PRIV_SOCK_RESULT_BAD);
